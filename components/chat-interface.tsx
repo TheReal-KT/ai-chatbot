@@ -9,6 +9,7 @@ import { Mic, Send, Menu } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VoiceWaveform } from "@/components/voice-waveform"
 import { Sidebar } from "@/components/sidebar"
+import { useChat } from '@ai-sdk/react'
 
 type Message = {
   id: string
@@ -17,120 +18,151 @@ type Message = {
   timestamp: Date
 }
 
+// AI SDK compatible message type - using the same structure as useChat
+type AIMessage = {
+  id: string
+  role: "user" | "assistant" | "system"
+  content: string
+}
+
+// Updated ChatSession type to store messages compatible with AI SDK
 type ChatSession = {
   id: string
   title: string
-  messages: Message[]
+  messages: any[] // Using any[] to handle AI SDK message type compatibility
   lastActive: Date
 }
 
 export function ChatInterface() {
+  // Session management state (for sidebar)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
       id: "1",
-      title: "Welcome Chat",
-      messages: [
-        {
-          id: "1",
-          text: "Hello! How can I help you today?",
-          sender: "bot",
-          timestamp: new Date(),
-        },
-      ],
+      title: "New Chat",
+      messages: [],
       lastActive: new Date(),
     },
   ])
   const [currentSessionId, setCurrentSessionId] = useState("1")
-  const [pendingNewChat, setPendingNewChat] = useState(false)
-  const [inputValue, setInputValue] = useState("")
-  const [isListening, setIsListening] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isListening, setIsListening] = useState(false); 
+
+  // AI SDK integration for current session
+  const { messages, sendMessage} = useChat()
+  const [input, setInput] = useState(""); 
+
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const currentSession = chatSessions.find((s) => s.id === currentSessionId)
-  const messages = currentSession?.messages || []
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }
-
+  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom()
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages])
 
+  // Save current session messages when switching sessions
+  const saveCurrentSession = () => {
+    setChatSessions(prev => prev.map(session => 
+      session.id === currentSessionId 
+        ? { ...session, messages, lastActive: new Date() }
+        : session
+    ))
+  }
+
+  // Load session messages when switching
+  const loadSession = (sessionId: string) => {
+    const session = chatSessions.find(s => s.id === sessionId)
+    if (session) {
+      sendMessage()
+    }
+  }
+
+  // Handle Submit 
+  const handleSubmit = (e: React.FormEvent) => { 
+    e.preventDefault();
+    const value = input.trim(); 
+    if (!value) return; 
+    sendMessage({text: value}); 
+    setInput(""); 
+  }
+   
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { 
+    e.preventDefault(); 
+    setInput(e.target.value); 
+  }
+
+  // Handle session switching
+  const handleSelectChat = (sessionId: string) => {
+    if (sessionId !== currentSessionId) {
+      saveCurrentSession() // Save current session first
+      setCurrentSessionId(sessionId)
+      loadSession(sessionId) // Load new session
+    }
+  }
+
+  // Create new chat session
   const createNewChat = () => {
-    setPendingNewChat(true)
+    saveCurrentSession() // Save current session first
+    
+    const newSessionId = Date.now().toString()
+    const newSession: ChatSession = {
+      id: newSessionId,
+      title: "New Chat",
+      messages: [],
+      lastActive: new Date(),
+    }
+    
+    setChatSessions(prev => [newSession, ...prev])
+    setCurrentSessionId(newSessionId)
+    sendMessage([]) // Clear AI SDK messages for new session
   }
 
+  // Delete chat session
   const deleteChat = (sessionId: string) => {
-    setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
-    if (currentSessionId === sessionId && chatSessions.length > 1) {
-      const remainingSessions = chatSessions.filter((s) => s.id !== sessionId)
-      setCurrentSessionId(remainingSessions[0].id)
-    }
+    setChatSessions(prev => {
+      const filtered = prev.filter(session => session.id !== sessionId)
+      
+      // If deleting current session, switch to another one
+      if (sessionId === currentSessionId && filtered.length > 0) {
+        const newCurrentId = filtered[0].id
+        setCurrentSessionId(newCurrentId)
+        loadSession(newCurrentId)
+      } else if (filtered.length === 0) {
+        // If no sessions left, create a new one
+        createNewChat()
+      }
+      
+      return filtered
+    })
   }
 
-  const handleSendMessage = () => {
-    if (!inputValue.trim()) return
-
-    if (pendingNewChat) {
-      const newSession: ChatSession = {
-        id: Date.now().toString(),
-        title: inputValue.slice(0, 30),
-        messages: [],
-        lastActive: new Date(),
+  // Update session title based on first message
+  useEffect(() => {
+    if (messages.length > 0) {
+      const firstUserMessage = messages.find((m: any) => m.role === 'user')
+      if (firstUserMessage) {
+        const title = firstUserMessage.content?.slice(0, 30) + (firstUserMessage.content?.length > 30 ? '...' : '')
+        setChatSessions(prev => prev.map(session => 
+          session.id === currentSessionId 
+            ? { ...session, title }
+            : session
+        ))
       }
-      setChatSessions((prev) => [newSession, ...prev])
-      setCurrentSessionId(newSession.id)
-      setPendingNewChat(false)
     }
+  }, [messages, currentSessionId])
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      text: inputValue,
-      sender: "user",
-      timestamp: new Date(),
-    }
+  // Save session when component unmounts or messages change
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      saveCurrentSession()
+    }, 1000) // Debounce saves
 
-    setChatSessions((prev) =>
-      prev.map((session) =>
-        session.id === currentSessionId
-          ? {
-              ...session,
-              messages: [...session.messages, userMessage],
-              title: session.messages.length === 0 ? inputValue.slice(0, 30) : session.title,
-              lastActive: new Date(),
-            }
-          : session,
-      ),
-    )
-    setInputValue("")
-
-    setTimeout(() => {
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I'm here to assist you! This is a demo response.",
-        sender: "bot",
-        timestamp: new Date(),
-      }
-      setChatSessions((prev) =>
-        prev.map((session) =>
-          session.id === currentSessionId
-            ? {
-                ...session,
-                messages: [...session.messages, botMessage],
-                lastActive: new Date(),
-              }
-            : session,
-        ),
-      )
-    }, 1000)
-  }
+    return () => clearTimeout(timeoutId)
+  }, [messages])
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSendMessage()
+      handleSubmit(e as unknown as React.FormEvent)
     }
   }
 
@@ -149,7 +181,7 @@ export function ChatInterface() {
         chatSessions={chatSessions}
         currentSessionId={currentSessionId}
         onNewChat={createNewChat}
-        onSelectChat={setCurrentSessionId}
+        onSelectChat={handleSelectChat}
         onDeleteChat={deleteChat}
         isOpen={isSidebarOpen}
       />
@@ -171,7 +203,9 @@ export function ChatInterface() {
             </Button>
             <div>
               <h2 className="text-lg font-semibold text-card-foreground">AI Assistant</h2>
-              <p className="text-sm text-muted-foreground">Always here to help</p>
+              <p className="text-sm text-muted-foreground">
+                {isLoading ? "Thinking..." : "Always here to help"}
+              </p>
             </div>
           </div>
         </div>
@@ -183,21 +217,21 @@ export function ChatInterface() {
               key={message.id}
               className={cn(
                 "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-                message.sender === "user" ? "justify-end" : "justify-start",
+                (message as any).role === "user" ? "justify-end" : "justify-start",
               )}
               style={{ animationDelay: `${index * 50}ms` }}
             >
               <div
                 className={cn(
                   "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md",
-                  message.sender === "user"
+                  (message as any).role === "user"
                     ? "bg-[var(--user-message)] text-[var(--user-message-foreground)]"
                     : "bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border",
                 )}
               >
-                <p className="text-sm leading-relaxed">{message.text}</p>
+                <p className="text-sm leading-relaxed whitespace-pre-wrap">{(message as any).content}</p>
                 <span className="mt-1 block text-xs opacity-70">
-                  {message.timestamp.toLocaleTimeString([], {
+                  {new Date().toLocaleTimeString([], {
                     hour: "2-digit",
                     minute: "2-digit",
                   })}
@@ -205,25 +239,40 @@ export function ChatInterface() {
               </div>
             </div>
           ))}
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border">
+                <div className="flex items-center space-x-2">
+                  <div className="flex space-x-1">
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+                  </div>
+                  <span className="text-sm opacity-70">AI is typing...</span>
+                </div>
+              </div>
+            </div>
+          )}
           <div ref={messagesEndRef} />
         </div>
 
         {/* Input Area */}
         <div className="border-t bg-card p-4">
-          <div className="mx-auto flex max-w-4xl items-center gap-2">
+          <form onSubmit={handleSubmit} className="mx-auto flex max-w-4xl items-center gap-2">
             <div className="relative flex-1">
               <Input
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
+                value={input}
+                onChange={handleInputChange}
                 onKeyDown={handleKeyPress}
                 placeholder="Type your message..."
                 className="pr-12 shadow-sm"
+                disabled={isLoading}
               />
               <Button
+                type="submit"
                 size="icon"
                 variant="ghost"
-                onClick={handleSendMessage}
-                disabled={!inputValue.trim()}
+                disabled={!input?.trim() || isLoading}
                 className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
               >
                 <Send className="h-4 w-4" />
@@ -232,6 +281,7 @@ export function ChatInterface() {
 
             {/* Voice Input Button */}
             <Button
+              type="button"
               size="icon"
               variant={isListening ? "default" : "outline"}
               onClick={toggleVoiceInput}
@@ -242,7 +292,7 @@ export function ChatInterface() {
             >
               <Mic className="h-5 w-5" />
             </Button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

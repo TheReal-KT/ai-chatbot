@@ -1,4 +1,3 @@
-import 'dotenv/config'; 
 import { google } from '@ai-sdk/google'; 
 import {
     convertToModelMessages,
