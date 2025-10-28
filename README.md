@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# AI Chatbot Assistant
 
-## Getting Started
+An interactive, front‑end AI assistant experience built with Next.js (App Router) and TypeScript. It provides a multi‑session chat interface, a visual voice "listening" indicator, and productivity pages for News and To‑Dos — all wrapped in a clean, responsive UI.
 
-First, run the development server:
+## What This Assistant Is About
 
+The AI Assistant is a demonstration UI for conversational help and daily productivity. It lets you:
+- Start and manage multiple chat sessions with an assistant.
+- See a voice waveform indicator when "listening" mode is toggled (visual only).
+- Browse a mock News dashboard to stay informed.
+- Track tasks with a simple To‑Do list.
+
+Note: This project currently uses mock data and demo bot responses. It does not connect to a real AI backend yet. You can wire in your own API later (see "Integrating a Real Backend").
+
+## Features
+
+- Multi‑session chat with a sidebar for quick navigation.
+- Animated voice waveform indicator to simulate voice input status.
+- News dashboard with categorized, time‑stamped mock articles.
+- To‑Do list with priorities, active/completed views, and quick add.
+- Modern, accessible UI components and icons.
+
+## Quick Start
+
+Prerequisites:
+- Node.js 18+ and npm (or yarn/pnpm/bun).
+
+Install and run:
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
+Open `http://localhost:3000` in your browser.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## How to Use
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- Chat: Open the app and start typing in the input. Press Enter or click Send.
+- New chat: Use the sidebar "New Chat" to create another session.
+- Voice indicator: Click the mic button to toggle the waveform (visual demo).
+- News: Navigate to `/news` from the sidebar to view articles.
+- To‑Dos: Navigate to `/todos` to add, complete, or delete tasks.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project Structure
 
-## Learn More
+- `app/` – App Router pages
+  - `page.tsx` – Home with the chat interface
+  - `news/page.tsx` – News dashboard
+  - `todos/page.tsx` – To‑Do list
+- `components/` – Reusable UI and app components
+  - `chat-interface.tsx` – Chat UI logic and layout
+  - `voice-waveform.tsx` – Visual voice indicator
+  - `sidebar.tsx` – Navigation and chat session shortcuts
+- `lib/utils.ts` – Utility helpers
+- `globals.css` – Global styles
 
-To learn more about Next.js, take a look at the following resources:
+## Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- `next` (App Router) + `typescript`
+- `react`, `react-dom`
+- `tailwindcss` + `tailwindcss-animate`
+- `lucide-react` icons
+- Radix UI primitives and custom UI components (in `components/ui/*`)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Integrating a Real Backend
 
-## Deploy on Vercel
+This UI is ready to connect to your AI or API service:
+- Replace the demo bot response in `components/chat-interface.tsx` (`handleSendMessage`) with a call to your backend.
+- Add real voice capture if desired (e.g., Web Speech API or a custom recorder) and stream transcriptions to your chat handler.
+- Persist sessions/messages by saving to a database via API routes.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `npm run dev` – Start the local development server.
+- `npm run build` – Build for production.
+- `npm run start` – Run the production build.
+- `npm run lint` – Lint the codebase.
+
+## Deployment
+
+You can deploy to any Next.js‑compatible platform. Vercel is recommended for a quick setup. Build with `npm run build` and follow your platform’s deployment instructions.
+
+---
+
+Questions or ideas? Feel free to extend the components or plug in your preferred AI service to make the assistant truly conversational.
