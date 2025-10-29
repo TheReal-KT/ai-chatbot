@@ -141,7 +141,7 @@ export default function LoginPage() {
       {/* Right side - Space Image with Text */}
       <div className="relative hidden lg:flex lg:w-1/2">
         <img
-          src="/assets/greek-statue.jpg"
+          src="/public/assets/greek-statue.jpg"
           alt="Space background"
           className="h-full w-full object-cover"
         />

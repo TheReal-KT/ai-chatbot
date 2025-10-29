@@ -113,7 +113,7 @@ export default function SignUpPage() {
       {/* Right side - Space Image with Text */}
       <div className="relative hidden lg:flex lg:w-1/2">
         <img
-          src="/deep-space-nebula-stars-cosmic-universe-dark-blue-.jpg"
+          src="/public/assets/greek-statue.jpg"
           alt="Space background"
           className="h-full w-full object-cover"
         />

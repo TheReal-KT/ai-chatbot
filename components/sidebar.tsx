@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Plus, Newspaper, ListTodo, Search, MessageSquare, Trash2, LogOut, User } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -33,8 +33,29 @@ export function Sidebar({
 }: SidebarProps) {
   const [showChatHistory, setShowChatHistory] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
+  const [displayName, setDisplayName] = useState<string | null>(null)
   const pathname = usePathname()
   const router = useRouter()
+
+  const deriveNameFromEmail = (email: string) => {
+    const local = email.split("@")[0]
+    const cleaned = local.replace(/[._-]+/g, " ")
+    return cleaned
+      .split(" ")
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ")
+  }
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      const email = data.user?.email
+      if (email) {
+        setDisplayName(deriveNameFromEmail(email))
+      }
+    })
+  }, [])
 
   const navItems = [
     {
@@ -176,7 +197,7 @@ export function Sidebar({
             <User className="h-4 w-4" />
           </div>
           <div className="flex-1 text-left">
-            <p className="text-sm font-medium">My Account</p>
+            <p className="text-sm font-medium">{displayName ?? "User"}</p>
             <p className="text-xs text-muted-foreground">Click to log out</p>
           </div>
         </button>

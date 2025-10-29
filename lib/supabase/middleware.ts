@@ -29,20 +29,19 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Skip auth gating for API routes and Next internals
- const pathname = request.nextUrl.pathname; 
+  const pathname = request.nextUrl.pathname
 
- const isPublic = 
- pathname.startsWith("/login") ||
- pathname.startsWith("/signup") ||
- pathname.startsWith("/sign-up") ||
- pathname.startsWith("/_next") ||
- pathname.startsWith("/api") ||
- pathname.startsWith("/auth");
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/signup") ||
+    pathname.startsWith("/sign-up") ||
+    pathname.startsWith("/signup-success") ||
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/api") ||
+    pathname.startsWith("/auth") ||
+    pathname === "/favicon.ico"
 
-  if (
-    !user && !isPublic
-  ) {
+  if (!user && !isPublic) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
@@ -50,7 +49,7 @@ export async function updateSession(request: NextRequest) {
 
   if (
     user &&
-    (pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname.startsWith("/sign-up"))
+    (pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname === "/sign-up")
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/chat"
