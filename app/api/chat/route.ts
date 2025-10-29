@@ -24,7 +24,7 @@ export async function POST(req: Request) {
         'You are to ensure to not mislead the user with information and only use the tools provided.',
     ].join('\n');
 
-    const result = streamText({ 
+    const result = await streamText({ 
         model: google('gemini-2.5-flash'),
         messages: convertToModelMessages([
           { role: 'system', parts: [{ type: 'text', text: systemInstructionText }] },
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
                     const apiKey = process.env.SERPAPI_API_KEY
                     const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${apiKey}`;
                     const response = await fetch(url); 
-                    const data = response.json();
+                    const data = await response.json();
                     return { results: data };
                 },
             }),
@@ -75,5 +75,5 @@ export async function POST(req: Request) {
             }),
         },
     })
-    return result.toUIMessageStream(); 
+    return result.toUIMessageStreamResponse(); 
 }

@@ -72,7 +72,7 @@ export function ChatInterface() {
   const loadSession = (sessionId: string) => {
     const session = chatSessions.find(s => s.id === sessionId)
     if (session) {
-      sendMessage()
+      sendMessage(session.messages ?? [])
     }
   }
 
@@ -81,7 +81,6 @@ export function ChatInterface() {
     e.preventDefault();
     const value = input.trim(); 
     if (!value) return; 
-    sendMessage({text: value}); 
     setInput(""); 
   }
    
@@ -113,7 +112,6 @@ export function ChatInterface() {
     
     setChatSessions(prev => [newSession, ...prev])
     setCurrentSessionId(newSessionId)
-    sendMessage([]) // Clear AI SDK messages for new session
   }
 
   // Delete chat session
@@ -140,7 +138,7 @@ export function ChatInterface() {
     if (messages.length > 0) {
       const firstUserMessage = messages.find((m: any) => m.role === 'user')
       if (firstUserMessage) {
-        const title = firstUserMessage.content?.slice(0, 30) + (firstUserMessage.content?.length > 30 ? '...' : '')
+        const title = (firstUserMessage as any).content?.slice(0, 30) + ((firstUserMessage as any).content?.length > 30 ? '...' : '')
         setChatSessions(prev => prev.map(session => 
           session.id === currentSessionId 
             ? { ...session, title }
@@ -214,7 +212,7 @@ export function ChatInterface() {
         <div className="flex-1 space-y-4 overflow-y-auto p-6">
           {messages.map((message, index) => (
             <div
-              key={message.id}
+              key={(message as any).id ?? index}
               className={cn(
                 "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
                 (message as any).role === "user" ? "justify-end" : "justify-start",
