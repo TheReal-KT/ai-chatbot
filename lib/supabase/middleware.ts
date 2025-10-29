@@ -1,6 +1,5 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
-import path from "path"
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -36,9 +35,10 @@ export async function updateSession(request: NextRequest) {
  const isPublic = 
  pathname.startsWith("/login") ||
  pathname.startsWith("/signup") ||
-  pathname.startsWith("/_next") ||
-  pathname.startsWith("/api") ||
-  pathname.startsWith("/auth");
+ pathname.startsWith("/sign-up") ||
+ pathname.startsWith("/_next") ||
+ pathname.startsWith("/api") ||
+ pathname.startsWith("/auth");
 
   if (
     !user && !isPublic
@@ -50,7 +50,7 @@ export async function updateSession(request: NextRequest) {
 
   if (
     user &&
-    (pathname === "/" || pathname === "/login" || pathname === "/signup")
+    (pathname === "/" || pathname === "/login" || pathname === "/signup" || pathname.startsWith("/sign-up"))
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/chat"

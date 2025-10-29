@@ -130,7 +130,7 @@ export default function LoginPage() {
 
             <p className="mt-6 text-center text-xs text-muted-foreground sm:text-sm">
               {"Don't have an account? "}
-              <Link href="/signup" className="text-blue-600 hover:underline dark:text-blue-400">
+              <Link href="/sign-up" className="text-blue-600 hover:underline dark:text-blue-400">
                 Sign up
               </Link>
             </p>
@@ -141,7 +141,7 @@ export default function LoginPage() {
       {/* Right side - Space Image with Text */}
       <div className="relative hidden lg:flex lg:w-1/2">
         <img
-          src="/deep-space-nebula-stars-cosmic-universe-dark-blue-.jpg"
+          src="/assets/greek-statue.jpg"
           alt="Space background"
           className="h-full w-full object-cover"
         />
