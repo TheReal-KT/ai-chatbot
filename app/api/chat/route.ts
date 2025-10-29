@@ -39,10 +39,21 @@ export async function POST(req: Request) {
                 }),
                 execute: async ({ query }) => {
                     const apiKey = process.env.SERPAPI_API_KEY
+                    if (!apiKey) {
+                        return { error: 'Missing SERPAPI_API_KEY. Set it in .env.local on the server.' }
+                    }
                     const url = `https://serpapi.com/search.json?engine=google&q=${encodeURIComponent(query)}&api_key=${apiKey}`;
-                    const response = await fetch(url); 
-                    const data = await response.json();
-                    return { results: data };
+                    try {
+                        const response = await fetch(url, { cache: 'no-store' });
+                        if (!response.ok) {
+                            const text = await response.text();
+                            return { error: `SerpAPI error ${response.status}: ${text.slice(0, 200)}` }
+                        }
+                        const data = await response.json();
+                        return { results: data };
+                    } catch (err: any) {
+                        return { error: `Network error calling SerpAPI: ${err?.message || String(err)}` };
+                    }
                 },
             }),
             createTask: tool({

@@ -68,6 +68,19 @@ This UI is ready to connect to your AI or API service:
 - Add real voice capture if desired (e.g., Web Speech API or a custom recorder) and stream transcriptions to your chat handler.
 - Persist sessions/messages by saving to a database via API routes.
 
+## Web Search (SerpAPI)
+
+The chat API can search the web using SerpAPI. To enable it:
+
+- Create a `.env.local` file at the project root and add:
+```
+SERPAPI_API_KEY=your_serpapi_key_here
+```
+- Restart the dev server after adding or changing env vars.
+- In the chat, ask questions that require internet search; the API route will call SerpAPI server-side.
+
+If the key is missing or invalid, the chat will return a clear error from the search tool.
+
 ## Scripts
 
 - `npm run dev` – Start the local development server.

@@ -218,15 +218,6 @@ export function ChatInterface() {
     }
   }
 
-  const formatTime = (ts?: Date | string | number) => { 
-    if (!ts) return ''
-    const d = ts instanceof Date ? ts : new Date(ts)
-    return d.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })
-  }
-
   const toggleVoiceInput = () => {
     setIsListening(!isListening)
   }

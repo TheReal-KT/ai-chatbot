@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import Image from "next/image"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("")
@@ -140,10 +141,12 @@ export default function LoginPage() {
 
       {/* Right side - Space Image with Text */}
       <div className="relative hidden lg:flex lg:w-1/2">
-        <img
-          src="/public/assets/greek-statue.jpg"
+        <Image
+          src="/assets/statue_img.jpg"
           alt="Space background"
-          className="h-full w-full object-cover"
+          fill
+          className="object-cover"
+          priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute inset-0 flex items-center justify-center">
