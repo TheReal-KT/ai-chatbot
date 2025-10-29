@@ -12,6 +12,14 @@ import YahooFinance from 'yahoo-finance2';
 export const maxDuration = 30;
 
 export async function POST(req: Request) {
+    // Guard: ensure Gemini API key is configured
+    if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
+        return new Response(
+            JSON.stringify({ error: 'Missing GOOGLE_GENERATIVE_AI_API_KEY in environment.' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+    }
+
     const { messages }: { messages: UIMessage[] } = await req.json();
 
     const systemInstructionText = [
