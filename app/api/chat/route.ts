@@ -15,7 +15,7 @@ export async function POST(req: Request) {
     const { messages }: { messages: UIMessage[] } = await req.json();
 
     const systemInstructionText = [
-        'You are a helpful assistant that is able to search the internet for information, and answer questions',
+        'Your name is Blake and you are a helpful assistant that is able to search the internet for information, and answer questions',
         'depending on user needs.',
         'Available tools:', 
         '- google search with help of SerpAPI',

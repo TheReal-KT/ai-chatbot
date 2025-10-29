@@ -25,6 +25,57 @@ type ChatSession = {
   lastActive: Date
 }
 
+type UIPart = { type: string; text? : string; [key: string]: any }
+
+function getTextFromParts( parts?: UIPart[]): string { 
+  if(!parts || parts.length === 0) return ""
+  return parts
+    .map((p) => (p.type === 'text' ? (p.text ?? '') : ''))
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+}
+
+function MessageBubble({
+  role, 
+  parts,
+}: { 
+  role: "user" | "bot" | 'system' | string
+  parts?: UIPart[],
+}) { 
+  const isUser = role === 'user'
+  const text = getTextFromParts(parts)
+
+  return ( 
+    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+      <div
+        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+          isUser
+            ? 'bg-blue-600 text-white'
+            : 'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100'
+        }`}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <div
+            className={`h-6 w-6 rounded-full flex items-center justify-center text-xs font-semibold ${
+              isUser
+                ? 'bg-blue-700 text-white'
+                : 'bg-zinc-300 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-200'
+            }`}
+          >
+            {isUser ? 'You' : 'AI'}
+          </div>
+          <span className="text-xs opacity-70">{isUser ? 'You' : 'Assistant'}</span>
+        </div>
+        <div className="whitespace-pre-wrap">
+          {text || (parts?.length ? JSON.stringify(parts, null, 2) : 'No content')}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 export function ChatInterface() {
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
@@ -34,16 +85,14 @@ export function ChatInterface() {
       lastActive: new Date(),
     },
   ])
-  const {message, sendMessage} = useChat(); 
+ 
   const [currentSessionId, setCurrentSessionId] = useState("1")
   const [pendingNewChat, setPendingNewChat] = useState(false)
   const [inputValue, setInputValue] = useState("")
   const [isListening, setIsListening] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  const currentSession = chatSessions.find((s) => s.id === currentSessionId)
-  const messages = currentSession?.messages || []
+  const {messages, sendMessage} = useChat({ id: currentSessionId }); 
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -99,6 +148,9 @@ export function ChatInterface() {
           : session,
       ),
     )
+    sendMessage({
+      text: inputValue,
+    })
     setInputValue("")
 
     setTimeout(() => {
@@ -127,6 +179,15 @@ export function ChatInterface() {
       e.preventDefault()
       handleSendMessage()
     }
+  }
+
+  const formatTime = (ts?: Date | string | number) => { 
+    if (!ts) return ''
+    const d = ts instanceof Date ? ts : new Date(ts)
+    return d.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })
   }
 
   const toggleVoiceInput = () => {
@@ -235,26 +296,15 @@ export function ChatInterface() {
                   key={message.id}
                   className={cn(
                     "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-                    message.sender === "user" ? "justify-end" : "justify-start",
+                    message.role === "user" ? "justify-end" : "justify-start",
                   )}
                   style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-2xl px-3 py-2 shadow-sm transition-all hover:shadow-md sm:max-w-[80%] sm:px-4 sm:py-3",
-                      message.sender === "user"
-                        ? "bg-[var(--user-message)] text-[var(--user-message-foreground)]"
-                        : "bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border",
-                    )}
-                  >
-                    <p className="text-sm leading-relaxed">{message.text}</p>
-                    <span className="mt-1 block text-xs opacity-70">
-                      {message.timestamp.toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </span>
-                  </div>
+                  <MessageBubble
+                    key={message.id}
+                    role={message.role === "user" ? "user" : "bot"}
+                    parts={(message as any).parts}
+                  />
                 </div>
               ))}
               <div ref={messagesEndRef} />
