@@ -9,6 +9,7 @@ import { Mic, Send, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VoiceWaveform } from "@/components/voice-waveform"
 import { Sidebar } from "@/components/sidebar"
+import { useChat } from "@ai-sdk/react"
 
 type Message = {
   id: string
@@ -33,6 +34,7 @@ export function ChatInterface() {
       lastActive: new Date(),
     },
   ])
+  const {message, sendMessage} = useChat(); 
   const [currentSessionId, setCurrentSessionId] = useState("1")
   const [pendingNewChat, setPendingNewChat] = useState(false)
   const [inputValue, setInputValue] = useState("")
