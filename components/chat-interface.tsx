@@ -5,11 +5,10 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Mic, Send, Menu } from "lucide-react"
+import { Mic, Send, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VoiceWaveform } from "@/components/voice-waveform"
 import { Sidebar } from "@/components/sidebar"
-import { useChat } from '@ai-sdk/react'
 
 type Message = {
   id: string
@@ -18,23 +17,14 @@ type Message = {
   timestamp: Date
 }
 
-// AI SDK compatible message type - using the same structure as useChat
-type AIMessage = {
-  id: string
-  role: "user" | "assistant" | "system"
-  content: string
-}
-
-// Updated ChatSession type to store messages compatible with AI SDK
 type ChatSession = {
   id: string
   title: string
-  messages: any[] // Using any[] to handle AI SDK message type compatibility
+  messages: Message[]
   lastActive: Date
 }
 
 export function ChatInterface() {
-  // Session management state (for sidebar)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
       id: "1",
@@ -44,254 +34,265 @@ export function ChatInterface() {
     },
   ])
   const [currentSessionId, setCurrentSessionId] = useState("1")
+  const [pendingNewChat, setPendingNewChat] = useState(false)
+  const [inputValue, setInputValue] = useState("")
+  const [isListening, setIsListening] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
-  const [isListening, setIsListening] = useState(false); 
-
-  // AI SDK integration for current session
-  const { messages, sendMessage} = useChat()
-  const [input, setInput] = useState(""); 
-
-
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Scroll to bottom when messages change
-  useEffect(() => {
+  const currentSession = chatSessions.find((s) => s.id === currentSessionId)
+  const messages = currentSession?.messages || []
+
+  const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
   }, [messages])
 
-  // Save current session messages when switching sessions
-  const saveCurrentSession = () => {
-    setChatSessions(prev => prev.map(session => 
-      session.id === currentSessionId 
-        ? { ...session, messages, lastActive: new Date() }
-        : session
-    ))
-  }
-
-  // Load session messages when switching
-  const loadSession = (sessionId: string) => {
-    const session = chatSessions.find(s => s.id === sessionId)
-    if (session) {
-      sendMessage(session.messages ?? [])
-    }
-  }
-
-  // Handle Submit 
-  const handleSubmit = (e: React.FormEvent) => { 
-    e.preventDefault();
-    const value = input.trim(); 
-    if (!value) return; 
-    setInput(""); 
-  }
-   
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => { 
-    e.preventDefault(); 
-    setInput(e.target.value); 
-  }
-
-  // Handle session switching
-  const handleSelectChat = (sessionId: string) => {
-    if (sessionId !== currentSessionId) {
-      saveCurrentSession() // Save current session first
-      setCurrentSessionId(sessionId)
-      loadSession(sessionId) // Load new session
-    }
-  }
-
-  // Create new chat session
   const createNewChat = () => {
-    saveCurrentSession() // Save current session first
-    
-    const newSessionId = Date.now().toString()
-    const newSession: ChatSession = {
-      id: newSessionId,
-      title: "New Chat",
-      messages: [],
-      lastActive: new Date(),
-    }
-    
-    setChatSessions(prev => [newSession, ...prev])
-    setCurrentSessionId(newSessionId)
+    setPendingNewChat(true)
   }
 
-  // Delete chat session
   const deleteChat = (sessionId: string) => {
-    setChatSessions(prev => {
-      const filtered = prev.filter(session => session.id !== sessionId)
-      
-      // If deleting current session, switch to another one
-      if (sessionId === currentSessionId && filtered.length > 0) {
-        const newCurrentId = filtered[0].id
-        setCurrentSessionId(newCurrentId)
-        loadSession(newCurrentId)
-      } else if (filtered.length === 0) {
-        // If no sessions left, create a new one
-        createNewChat()
-      }
-      
-      return filtered
-    })
+    setChatSessions((prev) => prev.filter((s) => s.id !== sessionId))
+    if (currentSessionId === sessionId && chatSessions.length > 1) {
+      const remainingSessions = chatSessions.filter((s) => s.id !== sessionId)
+      setCurrentSessionId(remainingSessions[0].id)
+    }
   }
 
-  // Update session title based on first message
-  useEffect(() => {
-    if (messages.length > 0) {
-      const firstUserMessage = messages.find((m: any) => m.role === 'user')
-      if (firstUserMessage) {
-        const title = (firstUserMessage as any).content?.slice(0, 30) + ((firstUserMessage as any).content?.length > 30 ? '...' : '')
-        setChatSessions(prev => prev.map(session => 
-          session.id === currentSessionId 
-            ? { ...session, title }
-            : session
-        ))
+  const handleSendMessage = () => {
+    if (!inputValue.trim()) return
+
+    if (pendingNewChat) {
+      const newSession: ChatSession = {
+        id: Date.now().toString(),
+        title: inputValue.slice(0, 30),
+        messages: [],
+        lastActive: new Date(),
       }
+      setChatSessions((prev) => [newSession, ...prev])
+      setCurrentSessionId(newSession.id)
+      setPendingNewChat(false)
     }
-  }, [messages, currentSessionId])
 
-  // Save session when component unmounts or messages change
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      saveCurrentSession()
-    }, 1000) // Debounce saves
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      text: inputValue,
+      sender: "user",
+      timestamp: new Date(),
+    }
 
-    return () => clearTimeout(timeoutId)
-  }, [messages])
+    setChatSessions((prev) =>
+      prev.map((session) =>
+        session.id === currentSessionId
+          ? {
+              ...session,
+              messages: [...session.messages, userMessage],
+              title: session.messages.length === 0 ? inputValue.slice(0, 30) : session.title,
+              lastActive: new Date(),
+            }
+          : session,
+      ),
+    )
+    setInputValue("")
+
+    setTimeout(() => {
+      const botMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: "I'm here to assist you! This is a demo response.",
+        sender: "bot",
+        timestamp: new Date(),
+      }
+      setChatSessions((prev) =>
+        prev.map((session) =>
+          session.id === currentSessionId
+            ? {
+                ...session,
+                messages: [...session.messages, botMessage],
+                lastActive: new Date(),
+              }
+            : session,
+        ),
+      )
+    }, 1000)
+  }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      handleSubmit(e as unknown as React.FormEvent)
+      handleSendMessage()
     }
   }
 
   const toggleVoiceInput = () => {
     setIsListening(!isListening)
-    if (!isListening) {
-      setTimeout(() => {
-        setIsListening(false)
-      }, 5000)
-    }
   }
 
   return (
     <div className="flex h-screen overflow-hidden">
-      <Sidebar
-        chatSessions={chatSessions}
-        currentSessionId={currentSessionId}
-        onNewChat={createNewChat}
-        onSelectChat={handleSelectChat}
-        onDeleteChat={deleteChat}
-        isOpen={isSidebarOpen}
-      />
+      {isListening && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/95 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="flex flex-col items-center gap-6">
+            <VoiceWaveform />
+            <Button size="lg" variant="outline" onClick={toggleVoiceInput} className="rounded-full px-8 bg-transparent">
+              Stop Listening
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {isSidebarOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
+      )}
+
+      <div
+        className={cn(
+          "fixed inset-y-0 left-0 z-50 lg:relative lg:z-0",
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
+          "transition-transform duration-300",
+        )}
+      >
+        <Sidebar
+          chatSessions={chatSessions}
+          currentSessionId={currentSessionId}
+          onNewChat={createNewChat}
+          onSelectChat={(id) => {
+            setCurrentSessionId(id)
+            setIsSidebarOpen(false)
+          }}
+          onDeleteChat={deleteChat}
+          isOpen={isSidebarOpen}
+        />
+      </div>
 
       {/* Main Chat Area */}
       <div className="relative flex flex-1 flex-col">
-        {/* Voice Waveform Indicator */}
-        {isListening && (
-          <div className="absolute left-1/2 top-8 z-10 -translate-x-1/2 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <VoiceWaveform />
-          </div>
-        )}
-
         {/* Chat Header */}
-        <div className="flex items-center justify-between border-b bg-card px-6 py-4">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center justify-between border-b bg-card px-4 py-3 sm:px-6 sm:py-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <Button size="icon" variant="ghost" onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="h-8 w-8">
-              <Menu className="h-4 w-4" />
+              {isSidebarOpen ? <X className="h-4 w-4 lg:hidden" /> : <Menu className="h-4 w-4" />}
             </Button>
             <div>
-              <h2 className="text-lg font-semibold text-card-foreground">AI Assistant</h2>
-              <p className="text-sm text-muted-foreground">
-                {isLoading ? "Thinking..." : "Always here to help"}
-              </p>
+              <h2 className="text-base font-semibold text-card-foreground sm:text-lg">AI Assistant</h2>
+              <p className="hidden text-sm text-muted-foreground sm:block">Always here to help</p>
             </div>
           </div>
         </div>
 
-        {/* Messages Container */}
-        <div className="flex-1 space-y-4 overflow-y-auto p-6">
-          {messages.map((message, index) => (
-            <div
-              key={(message as any).id ?? index}
-              className={cn(
-                "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-                (message as any).role === "user" ? "justify-end" : "justify-start",
-              )}
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <div
-                className={cn(
-                  "max-w-[80%] rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md",
-                  (message as any).role === "user"
-                    ? "bg-[var(--user-message)] text-[var(--user-message-foreground)]"
-                    : "bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border",
-                )}
-              >
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">{(message as any).content}</p>
-                <span className="mt-1 block text-xs opacity-70">
-                  {new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </span>
+        {messages.length === 0 ? (
+          // Empty state: centered input
+          <div className="flex flex-1 items-center justify-center p-4">
+            <div className="w-full max-w-2xl space-y-4">
+              <div className="text-center space-y-2 mb-8">
+                <h1 className="text-3xl sm:text-4xl font-semibold text-foreground">How can I help you today?</h1>
+                <p className="text-muted-foreground">Start a conversation by typing a message below</p>
               </div>
-            </div>
-          ))}
-          {isLoading && (
-            <div className="flex justify-start">
-              <div className="max-w-[80%] rounded-2xl px-4 py-3 bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border">
-                <div className="flex items-center space-x-2">
-                  <div className="flex space-x-1">
-                    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
-                    <div className="w-2 h-2 bg-current rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
-                  </div>
-                  <span className="text-sm opacity-70">AI is typing...</span>
+              <div className="flex items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="pr-10 shadow-lg text-base h-12 sm:h-14 sm:pr-12"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim()}
+                    className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 sm:h-10 sm:w-10"
+                  >
+                    <Send className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </Button>
                 </div>
+
+                {/* Voice Input Button */}
+                <Button
+                  size="icon"
+                  variant={isListening ? "default" : "outline"}
+                  onClick={toggleVoiceInput}
+                  className={cn("h-12 w-12 rounded-full shadow-lg transition-all hover:scale-105 sm:h-14 sm:w-14")}
+                >
+                  <Mic className="h-5 w-5 sm:h-6 sm:w-6" />
+                </Button>
               </div>
             </div>
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {/* Input Area */}
-        <div className="border-t bg-card p-4">
-          <form onSubmit={handleSubmit} className="mx-auto flex max-w-4xl items-center gap-2">
-            <div className="relative flex-1">
-              <Input
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyPress}
-                placeholder="Type your message..."
-                className="pr-12 shadow-sm"
-                disabled={isLoading}
-              />
-              <Button
-                type="submit"
-                size="icon"
-                variant="ghost"
-                disabled={!input?.trim() || isLoading}
-                className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+          </div>
+        ) : (
+          // Normal layout with messages
+          <>
+            {/* Messages Container */}
+            <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
+              {messages.map((message, index) => (
+                <div
+                  key={message.id}
+                  className={cn(
+                    "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
+                    message.sender === "user" ? "justify-end" : "justify-start",
+                  )}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                >
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-2xl px-3 py-2 shadow-sm transition-all hover:shadow-md sm:max-w-[80%] sm:px-4 sm:py-3",
+                      message.sender === "user"
+                        ? "bg-[var(--user-message)] text-[var(--user-message-foreground)]"
+                        : "bg-[var(--bot-message)] text-[var(--bot-message-foreground)] border",
+                    )}
+                  >
+                    <p className="text-sm leading-relaxed">{message.text}</p>
+                    <span className="mt-1 block text-xs opacity-70">
+                      {message.timestamp.toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div ref={messagesEndRef} />
             </div>
 
-            {/* Voice Input Button */}
-            <Button
-              type="button"
-              size="icon"
-              variant={isListening ? "default" : "outline"}
-              onClick={toggleVoiceInput}
-              className={cn(
-                "h-12 w-12 rounded-full shadow-md transition-all hover:scale-105",
-                isListening && "animate-pulse",
-              )}
-            >
-              <Mic className="h-5 w-5" />
-            </Button>
-          </form>
-        </div>
+            {/* Input Area */}
+            <div className="border-t bg-card p-3 sm:p-4">
+              <div className="mx-auto flex max-w-4xl items-center gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={handleKeyPress}
+                    placeholder="Type your message..."
+                    className="pr-10 shadow-sm sm:pr-12"
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={handleSendMessage}
+                    disabled={!inputValue.trim()}
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 sm:h-8 sm:w-8"
+                  >
+                    <Send className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </Button>
+                </div>
+
+                {/* Voice Input Button */}
+                <Button
+                  size="icon"
+                  variant={isListening ? "default" : "outline"}
+                  onClick={toggleVoiceInput}
+                  className={cn("h-10 w-10 rounded-full shadow-md transition-all hover:scale-105 sm:h-12 sm:w-12")}
+                >
+                  <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

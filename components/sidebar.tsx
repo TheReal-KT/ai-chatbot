@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
-import { Plus, Newspaper, ListTodo, Search, MessageSquare, Trash2 } from "lucide-react"
+import { Plus, Newspaper, ListTodo, Search, MessageSquare, Trash2, LogOut, User } from "lucide-react"
 import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
 type ChatSession = {
   id: string
@@ -31,6 +32,7 @@ export function Sidebar({
   isOpen,
 }: SidebarProps) {
   const [showChatHistory, setShowChatHistory] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const pathname = usePathname()
   const router = useRouter()
 
@@ -47,6 +49,13 @@ export function Sidebar({
     { icon: Newspaper, label: "News", href: "/news" },
     { icon: ListTodo, label: "To-Do List", href: "/todos" },
   ]
+
+  const handleLogout = async () => {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push("/login")
+    router.refresh()
+  }
 
   if (!isOpen) {
     return <aside className="w-0 overflow-hidden border-r bg-sidebar transition-all duration-300" />
@@ -109,7 +118,7 @@ export function Sidebar({
 
         {/* Chat History Dropdown on Hover */}
         {showChatHistory && (
-          <div className="absolute left-full top-0 z-50 ml-2 w-72 animate-in fade-in slide-in-from-left-2 rounded-lg border bg-card shadow-lg duration-200">
+          <div className="absolute left-full top-0 z-[60] ml-2 w-72 animate-in fade-in slide-in-from-left-2 rounded-lg border bg-card shadow-lg duration-200">
             <div className="border-b p-3">
               <h3 className="text-sm font-semibold text-card-foreground">Chat History</h3>
             </div>
@@ -156,6 +165,37 @@ export function Sidebar({
 
       {/* Spacer */}
       <div className="flex-1" />
+
+      {/* Profile Section at Bottom */}
+      <div className="relative border-t p-3">
+        <button
+          onClick={() => setShowSettings(!showSettings)}
+          className="flex w-full items-center gap-3 rounded-lg p-2 text-sidebar-foreground transition-colors hover:bg-sidebar-accent"
+        >
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-600 text-white">
+            <User className="h-4 w-4" />
+          </div>
+          <div className="flex-1 text-left">
+            <p className="text-sm font-medium">My Account</p>
+            <p className="text-xs text-muted-foreground">Click to log out</p>
+          </div>
+        </button>
+
+        {showSettings && (
+          <div className="absolute bottom-full left-0 mb-2 w-full animate-in fade-in slide-in-from-bottom-2 rounded-lg border bg-card shadow-lg duration-200">
+            <div className="p-2">
+              <Button
+                variant="ghost"
+                className="w-full justify-start gap-3 text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-950"
+                onClick={handleLogout}
+              >
+                <LogOut className="h-4 w-4" />
+                <span className="text-sm">Log out</span>
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </aside>
   )
 }

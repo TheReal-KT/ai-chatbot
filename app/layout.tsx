@@ -10,7 +10,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: "AI Chat Assistant",
+  title: "Blake Assistant",
   description: "Modern chatbot interface with voice input",
   generator: "v0.app",
 }
