@@ -39,6 +39,8 @@ export async function POST(req: Request) {
                 }),
                 execute: async ({ query }) => {
                     const apiKey = process.env.SERPAPI_API_KEY
+                    console.log('SERPAPI_API_KEY exists:', !!apiKey);
+                    console.log('SERPAPI_API_KEY length:', apiKey?.length || 0);
                     if (!apiKey) {
                         return { error: 'Missing SERPAPI_API_KEY. Set it in .env.local on the server.' }
                     }
