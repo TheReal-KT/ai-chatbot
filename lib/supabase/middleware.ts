@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse, type NextRequest } from "next/server"
+import path from "path"
 
 export async function updateSession(request: NextRequest) {
   let supabaseResponse = NextResponse.next({
@@ -29,11 +30,18 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Skip auth gating for API routes and Next internals
+ const pathname = request.nextUrl.pathname; 
+
+ const isPublic = 
+ pathname.startsWith("/login") ||
+ pathname.startsWith("/signup") ||
+  pathname.startsWith("/_next") ||
+  pathname.startsWith("/api") ||
+  pathname.startsWith("/auth");
+
   if (
-    !user &&
-    !request.nextUrl.pathname.startsWith("/login") &&
-    !request.nextUrl.pathname.startsWith("/signup") &&
-    request.nextUrl.pathname !== "/"
+    !user && !isPublic
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/login"
@@ -42,9 +50,7 @@ export async function updateSession(request: NextRequest) {
 
   if (
     user &&
-    (request.nextUrl.pathname === "/login" ||
-      request.nextUrl.pathname === "/signup" ||
-      request.nextUrl.pathname === "/")
+    (pathname === "/" || pathname === "/login" || pathname === "/signup")
   ) {
     const url = request.nextUrl.clone()
     url.pathname = "/chat"

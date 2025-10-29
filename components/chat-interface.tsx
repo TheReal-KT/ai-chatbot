@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { VoiceWaveform } from "@/components/voice-waveform"
 import { Sidebar } from "@/components/sidebar"
 import { useChat } from "@ai-sdk/react"
+import { createClient as createSupabaseClient } from "@/lib/supabase/client"
 
 type Message = {
   id: string
@@ -77,6 +78,8 @@ function MessageBubble({
 
 
 export function ChatInterface() {
+  const supabase = createSupabaseClient()
+  const [userId, setUserId] = useState<string | null>(null)
   const [chatSessions, setChatSessions] = useState<ChatSession[]>([
     {
       id: "1",
@@ -92,7 +95,27 @@ export function ChatInterface() {
   const [isListening, setIsListening] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const {messages, sendMessage} = useChat({ id: currentSessionId }); 
+  const { messages, sendMessage, isLoading, error } = useChat({
+    id: currentSessionId,
+    onFinish: async (assistantMessage) => {
+      try {
+        const assistantText = getTextFromParts((assistantMessage as any).parts)
+        if (!assistantText || !userId) return
+        await supabase.from("chat_messages").insert({
+          session_id: currentSessionId,
+          user_id: userId,
+          role: "assistant",
+          content: assistantText,
+        })
+        await supabase
+          .from("chat_sessions")
+          .update({ updated_at: new Date().toISOString() })
+          .eq("id", currentSessionId)
+      } catch {
+        // ignore persistence errors to keep UI responsive
+      }
+    },
+  })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -118,15 +141,41 @@ export function ChatInterface() {
     if (!inputValue.trim()) return
 
     if (pendingNewChat) {
-      const newSession: ChatSession = {
-        id: Date.now().toString(),
-        title: inputValue.slice(0, 30),
-        messages: [],
-        lastActive: new Date(),
+      const title = inputValue.slice(0, 30)
+      const createSession = async () => {
+        try {
+          let newId = Date.now().toString()
+          if (userId) {
+            const { data } = await supabase
+              .from("chat_sessions")
+              .insert({ user_id: userId, title })
+              .select("id,updated_at")
+              .single()
+            if (data?.id) newId = data.id
+          }
+          const newSession: ChatSession = {
+            id: newId,
+            title,
+            messages: [],
+            lastActive: new Date(),
+          }
+          setChatSessions((prev) => [newSession, ...prev])
+          setCurrentSessionId(newSession.id)
+        } catch {
+          // Fallback to local-only session
+          const newSession: ChatSession = {
+            id: Date.now().toString(),
+            title,
+            messages: [],
+            lastActive: new Date(),
+          }
+          setChatSessions((prev) => [newSession, ...prev])
+          setCurrentSessionId(newSession.id)
+        } finally {
+          setPendingNewChat(false)
+        }
       }
-      setChatSessions((prev) => [newSession, ...prev])
-      setCurrentSessionId(newSession.id)
-      setPendingNewChat(false)
+      void createSession()
     }
 
     const userMessage: Message = {
@@ -148,30 +197,18 @@ export function ChatInterface() {
           : session,
       ),
     )
-    sendMessage({
-      text: inputValue,
-    })
-    setInputValue("")
+    // Persist user message if possible
+    if (userId) {
+      void supabase.from("chat_messages").insert({
+        session_id: currentSessionId,
+        user_id: userId,
+        role: "user",
+        content: inputValue,
+      })
+    }
 
-    setTimeout(() => {
-      const botMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: "I'm here to assist you! This is a demo response.",
-        sender: "bot",
-        timestamp: new Date(),
-      }
-      setChatSessions((prev) =>
-        prev.map((session) =>
-          session.id === currentSessionId
-            ? {
-                ...session,
-                messages: [...session.messages, botMessage],
-                lastActive: new Date(),
-              }
-            : session,
-        ),
-      )
-    }, 1000)
+    sendMessage({ text: inputValue })
+    setInputValue("")
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -267,12 +304,15 @@ export function ChatInterface() {
                     size="icon"
                     variant="ghost"
                     onClick={handleSendMessage}
-                    disabled={!inputValue.trim()}
+                    disabled={!inputValue.trim() || isLoading}
                     className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 sm:h-10 sm:w-10"
                   >
                     <Send className="h-4 w-4 sm:h-5 sm:w-5" />
                   </Button>
                 </div>
+                {error ? (
+                  <div className="text-xs text-red-600">{String((error as any)?.message ?? error)}</div>
+                ) : null}
 
                 {/* Voice Input Button */}
                 <Button
@@ -325,12 +365,15 @@ export function ChatInterface() {
                     size="icon"
                     variant="ghost"
                     onClick={handleSendMessage}
-                    disabled={!inputValue.trim()}
+                    disabled={!inputValue.trim() || isLoading}
                     className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 sm:h-8 sm:w-8"
                   >
                     <Send className="h-3 w-3 sm:h-4 sm:w-4" />
                   </Button>
                 </div>
+                {error ? (
+                  <div className="text-xs text-red-600">{String((error as any)?.message ?? error)}</div>
+                ) : null}
 
                 {/* Voice Input Button */}
                 <Button
