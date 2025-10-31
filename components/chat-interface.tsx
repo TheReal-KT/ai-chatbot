@@ -9,8 +9,11 @@ import { Mic, Send, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { VoiceWaveform } from "@/components/voice-waveform"
 import { Sidebar } from "@/components/sidebar"
+import { VoiceSettings } from "@/components/voice-settings"
 import { useChat } from "@ai-sdk/react"
 import { createClient as createSupabaseClient } from "@/lib/supabase/client"
+import { useTextToSpeech } from "@/lib/hooks/use-text-to-speech"
+import { Volume2, VolumeX } from "lucide-react"
 
 type Message = {
   id: string
@@ -40,9 +43,15 @@ function getTextFromParts( parts?: UIPart[]): string {
 function MessageBubble({
   role, 
   parts,
+  onSpeak,
+  isSpeaking,
+  voiceEnabled,
 }: { 
   role: "user" | "bot" | 'system' | string
-  parts?: UIPart[],
+  parts?: UIPart[]
+  onSpeak?: () => void
+  isSpeaking?: boolean
+  voiceEnabled?: boolean
 }) { 
   const isUser = role === 'user'
   const text = getTextFromParts(parts)
@@ -67,6 +76,21 @@ function MessageBubble({
             {isUser ? 'You' : 'AI'}
           </div>
           <span className="text-xs opacity-70">{isUser ? 'You' : 'Assistant'}</span>
+          {!isUser && voiceEnabled && onSpeak && (
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={onSpeak}
+              className="h-5 w-5 ml-auto"
+              title={isSpeaking ? "Stop speaking" : "Read aloud"}
+            >
+              {isSpeaking ? (
+                <VolumeX className="h-3 w-3" />
+              ) : (
+                <Volume2 className="h-3 w-3" />
+              )}
+            </Button>
+          )}
         </div>
         <div className="whitespace-pre-wrap">
           {text || (parts?.length ? JSON.stringify(parts, null, 2) : 'No content')}
@@ -94,7 +118,11 @@ export function ChatInterface() {
   const [inputValue, setInputValue] = useState("")
   const [isListening, setIsListening] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [voiceEnabled, setVoiceEnabled] = useState(true)
+  const [currentlySpeakingId, setCurrentlySpeakingId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  const { speak, stop, isPlaying, selectedVoice, changeVoice, voices } = useTextToSpeech()
   const { messages, sendMessage, isLoading, error } = useChat({
     id: currentSessionId,
     onFinish: async (assistantMessage) => {
@@ -222,6 +250,17 @@ export function ChatInterface() {
     setIsListening(!isListening)
   }
 
+  const handleSpeakMessage = async (messageId: string, text: string) => {
+    if (currentlySpeakingId === messageId && isPlaying) {
+      stop()
+      setCurrentlySpeakingId(null)
+    } else {
+      setCurrentlySpeakingId(messageId)
+      await speak(text)
+      setCurrentlySpeakingId(null)
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden">
       {isListening && (
@@ -272,6 +311,13 @@ export function ChatInterface() {
               <p className="hidden text-sm text-muted-foreground sm:block">Always here to help</p>
             </div>
           </div>
+          <VoiceSettings
+            voices={voices}
+            selectedVoice={selectedVoice}
+            onVoiceChange={changeVoice}
+            isEnabled={voiceEnabled}
+            onToggleEnabled={() => setVoiceEnabled(!voiceEnabled)}
+          />
         </div>
 
         {messages.length === 0 ? (
@@ -322,22 +368,32 @@ export function ChatInterface() {
           <>
             {/* Messages Container */}
             <div className="flex-1 space-y-4 overflow-y-auto p-4 sm:p-6">
-              {messages.map((message, index) => (
-                <div
-                  key={message.id}
-                  className={cn(
-                    "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
-                    message.role === "user" ? "justify-end" : "justify-start",
-                  )}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <MessageBubble
+              {messages.map((message, index) => {
+                const text = getTextFromParts((message as any).parts)
+                return (
+                  <div
                     key={message.id}
-                    role={message.role === "user" ? "user" : "bot"}
-                    parts={(message as any).parts}
-                  />
-                </div>
-              ))}
+                    className={cn(
+                      "flex animate-in fade-in slide-in-from-bottom-2 duration-300",
+                      message.role === "user" ? "justify-end" : "justify-start",
+                    )}
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
+                    <MessageBubble
+                      key={message.id}
+                      role={message.role === "user" ? "user" : "bot"}
+                      parts={(message as any).parts}
+                      voiceEnabled={voiceEnabled}
+                      onSpeak={
+                        message.role !== "user"
+                          ? () => handleSpeakMessage(message.id, text)
+                          : undefined
+                      }
+                      isSpeaking={currentlySpeakingId === message.id}
+                    />
+                  </div>
+                )
+              })}
               <div ref={messagesEndRef} />
             </div>
 
